@@ -1,0 +1,381 @@
+---
+title: "Exploratory Data Analysis"
+author: "STOR 320.02 Group 16"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(readr)
+library(dplyr)
+library(leaps)
+
+developers <- read_csv("/Users/meghanpartrick/Documents/STOR 320/developers.csv")
+games <- read_csv("/Users/meghanpartrick/Documents/STOR 320/games.csv")
+genres <- read_csv("/Users/meghanpartrick/Documents/STOR 320/genres.csv")
+
+developers_and_games <- merge(developers, games, by="id", all.x=TRUE, all.y=TRUE)
+backloggd <- merge(developers_and_games, genres, by="id", all.x=TRUE, all.y=TRUE)
+
+# write_csv(backloggd, "backloggd.csv")
+```
+
+# Creator: Caroline Gaede
+
+### Q1: How much of the variation in the Wishlist variable is explainable by the Playing variable? Develop a linear model and observe its R^2 value.
+
+```{r}
+wishlists_mod <- lm(wishlists ~ playing, data = backloggd)
+#summary(mod5)
+r_squared_mod5 <- summary(wishlists_mod)$r.squared
+adj_r_squared_mod5 <- summary(wishlists_mod)$adj.r.squared
+
+print(data.frame("R_Squared" = r_squared_mod5, "Adj_R_Squared" = adj_r_squared_mod5))
+```
+
+Q1 Answer: About 52.84% of the variation in the Wishlists variable is explainable by the Playing variable.
+
+
+### Q2: Conduct a linear regression on Average Rating for the numerical predictors Plays, Playing, Backlogs, and Wishlists. In this analysis, which variables are most important in explaining the Average Rating, and what are their coefficients?
+
+```{r}
+advgrating_mod <- lm(rating ~ plays + playing + backlogs + wishlists, data = backloggd)
+summary(advgrating_mod)$coefficients
+
+r_squared_mod6 <- summary(advgrating_mod)$r.squared
+adj_r_squared_mod6 <- summary(advgrating_mod)$adj.r.squared
+print(data.frame("R_Squared" = r_squared_mod6, "Adj_R_Squared" = adj_r_squared_mod6))
+```
+
+Q2 Answer: Since all of the p-values are statistically significant at a 5% alpha level, we consider them to be crucial to this linear model. Their coefficients are displayed in the table above, and we see that the Wishlists variable has the highest coefficient estimate and the lowest p-value, indicating that is is probably the best of the four predictors of Average Rating. 
+However, if we observe the R^2 and adjusted R^2 values for this model (see the table above), we see that very little variation in Average Rating is explainable by these numerical variables. In fact, only about 5.4% of the variation in the Average Rating is explainable by these predictors. That leads to a follow-up question. 
+
+
+# Interpreter: Amir Wilson
+
+### Q1: In what month do we see the most successful games released based on average ratings?
+
+```{r}
+og_data = backloggd
+
+q1 <- og_data %>%
+    separate(date, into=c("Y","M","D"),sep="-") %>%
+    mutate_at(4:6,as.numeric) %>%
+    filter(!(is.na(M))) %>%
+    filter(!(is.na(rating))) %>%
+    group_by(M) %>%
+    summarise(avg_rating = mean(rating, na.rm = TRUE)) %>%
+    arrange(desc(avg_rating))
+most_successful_month = q1[1,]
+print(most_successful_month)
+```
+
+### Q2: During each decade what was the highest rated game and what development team produced it?
+
+```{r}
+q2 <- og_data%>%
+  separate(date, into=c("Y","M","D"),sep="-")%>%
+  mutate_at(4:6,as.numeric)%>%
+  mutate(Decade = floor(Y/10)*10)%>%
+        filter(!(is.na(Decade)))%>%
+        filter(!(is.na(rating)))%>%
+        group_by(Decade)%>%
+        arrange(desc(rating))%>%
+        slice(1:1)
+        
+highest_rated_games_per_decade = q2 
+print(highest_rated_games_per_decade)
+```
+
+# Orator 1: Choe Riley
+
+### Q1: Is the success (rating) of a video game related to the name of the video game?
+
+```{r}
+#What are the names of the best-rated games?
+top_20_rated_games <- backloggd %>%
+  arrange(desc(rating)) %>%
+  slice(1:121) %>%
+  ggplot(aes(x = rating, y = name)) +
+  geom_point(color=1) +
+  theme(axis.text.x = element_text(angle = 90), axis.text.y = element_text(size = 5.05)) #+
+top_20_rated_games
+
+#head(backloggd, 10)
+```
+
+There are 120 instances of games with a full 5.0 rating. There are three worthy instances of keywords that are shared between these games. The word “Legend” (and “Legends”) is shared between three games. There are also two games within the same family that is “Dinosaur King” and another pair of games within the “Beatmania” family. I would argue that a video game’s success does not rely on its name. There are a few outliers, but other than the games within the same family, a game’s success is dependent on other factors (i.e. marketing, entertainment, prequel/sequel availabilty, etc.).
+
+### Q2: A backlog in video gaming is a collection of games that a player owns but has not finished or even started playing. What year had the most amount of backlogs in a single instance? What year had the least amount of backlogs? What are possible reasons for an increase/decrease in backlogs (is the date/year significant)?
+
+```{r}
+year_of_backlogs <- backloggd %>%
+  arrange(desc(backlogs)) %>%
+  slice(1:50) %>%
+  ggplot(aes(x = date, y = backlogs)) +
+  geom_point(color=2) +
+  theme(axis.text.x = element_text(angle = 90))
+year_of_backlogs
+```
+
+```{r}
+year_of_no_backlogs <- backloggd %>%
+  arrange(backlogs) %>%
+  slice(1:50) %>%
+  ggplot(aes(x = date, y = backlogs)) +
+  geom_point(color=4) +
+  theme(axis.text.x = element_text(angle = 90))
+year_of_no_backlogs
+```
+
+The year 2017 had the single most instance of backlogs at 15647. We will ignore the instances of -1.00 backlogs because by definition of a backlog in video gaming, you cannot have -1.00 games that you have not completed or even started playing. Therefore, there are many years in which there were no instances of backlogs. The earliest year being 1975.
+
+The 1970s was the first decade in the history of the video game industry. This decade directed the development of arcade games as well as games for the first video game consoles and personal computers. This could be a large reason that backlogs were not very popular. The industry was just beginning to grow. As for 2017, there was a spike in video game releases due to Steam, a video game distribution service by Valve Corporation, allowing a flood of releases. Many gamers claim that Steam was less concerned with the quality of certain games, and more concerned with releasing as many as possible.
+
+
+# Orator 2: Marshall Graham
+
+### Q1: How have video games' genres popularity evolved over time, and what factors are most associated with those changes?
+
+```{r}
+backloggd2 = na.omit(backloggd)
+
+backloggd2$date = as.Date(backloggd2$date)
+backloggd2$year = year(backloggd2$date)
+backloggd2$decade = (backloggd2$year %/% 10) * 10
+
+#We can go further with this by analyzing each specific genre's prevalence in the industry every decade  
+
+total_games_per_decade = backloggd2 %>%
+  group_by(decade) %>%
+  summarise(total_games = n())
+
+backloggd3 = backloggd2 %>%
+  left_join(total_games_per_decade, by = "decade")
+
+backloggd3 = backloggd3 %>%
+  group_by(decade, genre) %>%
+  mutate(genre_count = n()) %>%
+  ungroup() %>%
+  mutate(proportion = genre_count / total_games)
+
+
+backloggd3 = na.omit(backloggd3)
+
+
+#We are only going to plot the top 10 genres to make it more readable. 
+
+top_10 = backloggd3 %>%
+  group_by(genre) %>%
+  summarise(total_proportion = sum(proportion)) %>%
+  arrange(desc(total_proportion)) %>%
+  head(10) %>%
+  .$genre
+
+backloggd3_filtered = backloggd3 %>%
+  filter(genre %in% top_10)
+
+ggplot(backloggd3_filtered, aes(x = decade, y = proportion, group = genre, color = genre)) +
+  geom_line() +
+  theme_minimal() +
+  labs(title = "proportion of games per decade for top 10 genres",
+       x = "decade",
+       y = "proportion") 
+```
+
+```{r}
+#Now, we can build a model to determine which variables are significant predictors of proportion
+
+
+mod1 = lm(proportion ~ year + wishlists + backlogs + playing + plays + reviews + rating, data = backloggd3)
+summary(mod1)
+
+#From this model, we can conclude that all of the predictors are statistically significant. We can determine which ones are most significant by ranking them in terms of absolute t value This means year is the most associated with proportion, followed by rating. 
+```
+
+### Q2: What is the relationship between a developers frequency of releases and their average rating of games? 
+
+```{r}
+#We can start by creating a new column in backloggd for each developer that describes the frequency of their releases. 
+
+freqq = backloggd2 %>%
+  group_by(developer) %>%
+  summarise(total_releases = n(), 
+            frequency = total_releases / 73) %>%
+  ungroup() 
+
+backloggd4 = backloggd2 %>%
+  left_join(freqq, by = "developer")
+
+#Now, we have a new column that gives us the frequency of releases for each developer per year, which we calculated by finding the total number of releases for each developer and dividing it by 73, which is the number of years in the dataset
+
+#now, we need to find the average rating per developer and make a column for it
+
+avg_ratings = backloggd4 %>%
+  group_by(developer) %>%
+  summarise(average_rating = mean(rating, na.rm = TRUE)) %>%
+  ungroup()
+
+backloggd4 = backloggd4 %>%
+  left_join(avg_ratings, by = "developer")
+
+#I made a figure representing the relationship between frequency and average rating
+
+
+ggplot(backloggd4, aes(x = frequency, y = average_rating)) + 
+  geom_smooth() +
+  labs(title = "Frequency of game release vs average rating", x = 'frequency', y = 'average rating')
+```
+
+```{r}
+#now that we have the frequency and the average rating, we can just make a simple model with those variables 
+
+mod2 = lm(average_rating ~ frequency, data = backloggd4)
+summary(mod2)
+```
+
+
+# Deliverer: Meghan Partrick
+
+### Q1: Which game developer teams have the highest ratings?
+
+```{r}
+#head(unique(backloggd$developer), 10)
+
+#cut down observations from 30000 to 5000ish but didn't think it was fair to let developers with one 5.0 game to be in the "top"
+
+backloggd_topdevelop3 = backloggd %>%
+  group_by(developer) %>%
+  summarize(ratings = mean(rating, na.rm=TRUE), n=n()) %>%
+  filter(n>10) %>%
+  top_n(15, wt = ratings) %>%
+  ungroup()
+
+backloggd_topdevelop3
+```
+
+```{r}
+ggplot(backloggd_topdevelop3, aes(x = reorder(developer, ratings), y = ratings)) +
+  geom_point() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(x = "Developer", y = "Average Ratings")
+```
+
+
+### Q2: In what year were the best video games created, in other words, which year had the highest ratings, on average, for all video games released?
+
+```{r}
+#separating that we can use "year" as a variable
+backloggd$date <- as.Date(backloggd$date)
+backloggd$year <- year(backloggd$date)
+backloggd$month <- month(backloggd$date)
+backloggd$day <- day(backloggd$date)
+
+#removing all years that don't have at least 10 video games... too small to compare
+backloggd_lessyear <- backloggd %>%
+  group_by(year) %>%
+  summarize(n=n())%>%
+  filter(n>10) %>%
+  ungroup()
+
+#making a dataset that isn't grouped with all years that have over 10 video games
+backloggd_yearrate <- backloggd %>%
+  filter(year >= 1971 & year <= 2025)
+
+#creating a factor so it is easier to make boxplot
+backloggd_yearrate$year <- as.factor(backloggd_yearrate$year)
+
+ggplot(backloggd_yearrate) +
+  geom_boxplot(aes(x=year, y=rating)) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+```
+
+# Follow-up Questions
+
+### New Questions Based Off Initial Investigation
+
+- Q1: Is there evidence to show that the top rated developers are just highly rated because they produce well-liked genres? 
+- Q2: Is there a possibility that these high ratings are due to the fact that number of reviews for these titles were low?
+- Q3: Considering that a linear model that uses Plays, Playing, Backlogs, and Wishlists is not very good at explaining variation in Average Rating, observe if the other numerical variable - Reviews - is a good predictor of Average Rating. We hypothesize that at least one of the numerical variables should be responsible for a good portion of variation in Average Rating.
+- Q4: Some genres of game have had drastic changes to their popularity over time. For example, adventure games peaked in 1970 and their popularity fell dramatically after that. What factors correlate with certain genres of game having drastic fluctuations in their popularity?
+
+### Investigation of Follow-up Questions
+
+Our group decided to investigate Q1 and Q2 in further detail.
+
+Q1 Investigation:
+
+```{r}
+# These figures refer to Q1
+
+#Using backloggd_topdevelop3, containing the top 15 rated developers, we can create a list of these developers on their own
+
+top_developers = backloggd_topdevelop3$developer
+Q1_figure_1 = backloggd %>%
+  filter(developer %in% top_developers)
+
+ggplot(Q1_figure_1) +
+  geom_bar(aes(x=genre)) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(x = "Genre", y = "Count")
+```
+
+```{r}
+#Since Adventure Genres are the most created games for the top developers, we can now look at a graph that shows if the adventure genre is top rated overall
+
+ggplot(backloggd) +
+  geom_boxplot(aes(x=genre, y=rating)) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(x = "Genre", y = "Rating")
+
+#Looking at this graph we can see that there isn't really a higher rated genre overall. Adventure certainly doesn't stick out.
+```
+
+
+Q2 Investigation:
+
+
+```{r}
+#We can answer this by investigating the relationship between ratings and reviews. We can do this in several ways. First, we will make a regression model and analyze the output to determine whether reviews is positively or negatively associated with rating and if the coefficient is statistically significant. 
+
+mod_q2 = lm(rating ~ reviews, data = backloggd)
+summary(mod_q2)
+
+#From this we can see that our p-value is essentially 0. Our positive B1 value indicates that as reviews increases, ratings increase with it. This contradicts our original question that reviews and ratings were negatively correlated. 
+
+#We can further investigate this question by plotting the relationship between ratings and reviews. 
+
+ggplot(backloggd, aes(x = reviews, y = rating)) +
+  geom_smooth() +
+  labs(title = 'Reviews vs Rating')
+
+#As we can see from our plot, it appears again that ratings and reviews are positively correlated. We can confidently say that the high ratings are not occurring because of a lower number of reviews. 
+
+
+```
+
+# Summary
+
+  Scraped from Kaggle with nearly 400,000 observations, the Backloggd dataset yields a number of actionable insights following the initial investigation. The list of ten initial questions require linear modeling and regression skills, data visualization, and data manipulation to pull answers from the set. Starting off with linear regression, we found that roughly 52.84% of the variation in the Wishlist variable is explainable by the Playing variable. It’s reasonable to assume that about half of the variation in the number of users with games on their wishlist is a result of the number of users actually playing the game. In other words, active players have an influence on other users wishing to play that same game. Furthermore, regression on Average Rating revealed that the numerical variables Plays, Playing, Backlogs, and Wishlists are all significant to the linear model, although the model itself is not very strong as it only explains about 5.4% of the rating variation. This R2 value opens up the discussion for a number of follow-up questions that boil down to: what would a better model be for predicting Average Rating? Next, following the creation of a proportion variable to represent the proportion of games per decade by genre, a linear model reveals that Year, Wishlists, Backlogs, Playing, Plays, Reviews, and Rating are all significant factors in predicting Proportion. Similarly to the previous model, the low R2 value of 0.7% raises some questions about the validity of the model. While linear regression produces a number of insights, some simple data manipulation and visualization is often enough to get the job done. For example, as with the Proportion variable, a Frequency variable was also created to represent the frequency of game releases for each developer per year, and the implementation of the geom_smooth() function allows us to see that, on average, the more often developers release games, the higher the average ratings tends to be. Since rating is a variable of high interest, other exploration showed that SelectSoft Publishing, Hentai Works, and Graviteam are the developers with the highest average rating. Another question also gave us the developers that produced the most successful game in each decade. Furthermore, 2024 so far has the highest mean average ratings which have been steadily increasing since 2016. And on a monthly scale, March typically sees the most successful games with an average rating of about 3.043. These insights lead us to focus on particular developers’ strengths in recent years, as this is where we tend to see higher ratings. We also noticed patterns in higher ratings, like the keywords “Legend(s)”, “Dinosaur King”, and “Beatmania” in the name of the game, although this does not necessarily indicate causation for success - just a pattern. Although rating is of high interest, we also explored the behavior of other variables like Backlogs, which was highest in 2017. It’s reasonable to assume that backlogs were not as popular at the birth of the industry, as we see a steady increase over time. A comprehensive look at these insights allowed us to formulate explicit follow-up questions to be investigated, including inquiries about high ratings and popular developers being a result of variables like Reviews or Genres. Next, we will discuss the findings from our follow-up investigation.
+
+  Our first follow-up question further explores the relationship between video game genres and developer popularity. Our goal is to demonstrate whether or not developers are rated higher because they produce more favorable genres, or if other factors contribute to such high developer ratings. It is evident that video games are a popular pastime, and for some, a profession. We wanted to dive deeper into this question to find out if certain developers are more popular than others because they produce satisfactory games or for other reasons (i.e. certain gamers are sponsored by a game/developer, a certain developer has great business practices, etc.). This question utilizes the top fifteen developers based on the highest ratings. It combines the average rating with the number of times a specific developer was given a rating. It is important to note that a single developer with one 5.0-rated game was not included in this data frame. A bar chart was then used to illustrate the genres of video games associated with these fifteen top-rated developers. Based on the graphic, Adventure occurs over fifty times with Platform following behind, occurring forty times. It is crucial to dive deeper into the rating of these genres, and not just how many times they appeared within the backloggd_topdevelop3 data frame. By creating a box plot, we can visualize the frequency and scope of each genre's collection of ratings. This shows us that there is not an overall highest or lowest genre. Adventure does not stick out. Therefore, although adventure games are created most by top-rated developers, adventure video games do not stand out as having the highest ratings.
+
+Our second follow-up question uses ratings and the number of reviews made for an individual video game title. From early in our statistics careers, we have been taught that the more data, the better. More data improves estimation and can account for biases. This question allows us to verify, for example, that a poor rating is not solely dependent on one bad review.  Initially, a regression model was used to estimate the relationship between the two variables, rating and reviews. The linear regression model denotes rating as the outcome variable and reviews as the predictor variable. These statistics tell us that as reviews increase, ratings also increase. This positive correlation is justified by the trend line and 95% confidence level interval given by geom_smooth() as well as the positive B1 value of 0.00078775 given by the linear regression model. From this analysis, ratings and reviews are positively correlated. High ratings are not a result of a low tally of reviews.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
