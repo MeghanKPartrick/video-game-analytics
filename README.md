@@ -7,5 +7,5 @@
 
 <br />
 
-The full paper can be found as an HTML in the files section.
+The full paper and exploratory data analysis can be found as HTML or RMD files above.
 <br />
